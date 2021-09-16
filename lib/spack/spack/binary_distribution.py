@@ -4,11 +4,9 @@
 # SPDX-License-Identifier: (Apache-2.0 OR MIT)
 
 import codecs
-import glob
 import hashlib
 import json
 import os
-import re
 import shutil
 import sys
 import tarfile
