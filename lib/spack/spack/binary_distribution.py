@@ -1388,40 +1388,18 @@ def extract_tarball(spec, filename, allow_root=False, unsigned=False,
     buildinfo = spec_dict.get('buildinfo', {})
     old_relative_prefix = buildinfo.get('relative_prefix', new_relative_prefix)
     rel = buildinfo.get('relative_rpaths')
-    # if the original relative prefix and new relative prefix differ the
-    # directory layout has changed and the  buildcache cannot be installed
-    # if it was created with relative rpaths
     info = 'old relative prefix %s\nnew relative prefix %s\nrelative rpaths %s'
     tty.debug(info %
               (old_relative_prefix, new_relative_prefix, rel))
-#    if (old_relative_prefix != new_relative_prefix and (rel)):
-#        shutil.rmtree(tmpdir)
-#        msg = "Package tarball was created from an install "
-#        msg += "prefix with a different directory layout. "
-#        msg += "It cannot be relocated because it "
-#        msg += "uses relative rpaths."
-#        raise NewLayoutException(msg)
 
-    # extract the tarball in a temp directory
+    def strip_leading_path(tf):
+        for member in tf.getmembers():
+            member.path = os.path.sep.join(member.path.split(os.path.sep)[1:])
+            yield member
+
+    # extract the tarball into prefix stripping the leading path
     with closing(tarfile.open(tarfile_path, 'r')) as tar:
-        tar.extractall(path=tmpdir)
-    # get the parent directory of the file .spack/binary_distribution
-    # this should the directory unpacked from the tarball whose
-    # name is unknown because the prefix naming is unknown
-    bindist_file = glob.glob('%s/*/.spack/binary_distribution' % tmpdir)[0]
-    workdir = re.sub('/.spack/binary_distribution$', '', bindist_file)
-    tty.debug('workdir %s' % workdir)
-    # install_tree copies hardlinks
-    # create a temporary tarfile from prefix and exract it to workdir
-    # tarfile preserves hardlinks
-    temp_tarfile_name = tarball_name(spec, '.tar')
-    temp_tarfile_path = os.path.join(tmpdir, temp_tarfile_name)
-    with closing(tarfile.open(temp_tarfile_path, 'w')) as tar:
-        tar.add(name='%s' % workdir,
-                arcname='.')
-    with closing(tarfile.open(temp_tarfile_path, 'r')) as tar:
-        tar.extractall(spec.prefix)
-    os.remove(temp_tarfile_path)
+        tar.extractall(str(spec.prefix), members=strip_leading_path(tar))
 
     # cleanup
     os.remove(tarfile_path)
